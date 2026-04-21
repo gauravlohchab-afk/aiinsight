@@ -1,0 +1,159 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --brand: 91 99 248;
+    --surface-bg: 9 13 24;
+    --card-bg: 30 38 64;
+    --border: rgba(91, 99, 248, 0.15);
+    --text-primary: 228 232 243;
+    --text-muted: 132 147 184;
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(91, 99, 248, 0.3) transparent;
+  }
+
+  *::-webkit-scrollbar {
+    width: 5px;
+    height: 5px;
+  }
+
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    background: rgba(91, 99, 248, 0.3);
+    border-radius: 99px;
+  }
+
+  *::-webkit-scrollbar-thumb:hover {
+    background: rgba(91, 99, 248, 0.5);
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background: #090d18;
+    min-height: 100vh;
+  }
+
+  ::selection {
+    background: rgba(91, 99, 248, 0.3);
+    color: white;
+  }
+}
+
+@layer components {
+  .card {
+    @apply bg-surface-900 border border-white/5 rounded-xl;
+  }
+
+  .card-hover {
+    @apply card transition-all duration-200 hover:border-brand-500/30 hover:shadow-brand;
+  }
+
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-brand-500 hover:bg-brand-600 
+           text-white font-medium text-sm rounded-lg transition-all duration-150 
+           focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-2 
+           focus:ring-offset-surface-950 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-surface-800 hover:bg-surface-700 
+           text-surface-200 font-medium text-sm rounded-lg border border-white/5 
+           transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-white/10;
+  }
+
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 px-3 py-2 text-surface-400 hover:text-white 
+           hover:bg-surface-800 font-medium text-sm rounded-lg transition-all duration-150;
+  }
+
+  .input {
+    @apply w-full px-3.5 py-2.5 bg-surface-900 border border-white/10 text-white 
+           placeholder:text-surface-500 rounded-lg text-sm 
+           focus:outline-none focus:ring-2 focus:ring-brand-500/40 focus:border-brand-500/50 
+           transition-all duration-150;
+  }
+
+  .label {
+    @apply block text-sm font-medium text-surface-300 mb-1.5;
+  }
+
+  .badge {
+    @apply inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium;
+  }
+
+  .metric-value {
+    @apply text-2xl font-bold text-white font-display tabular-nums;
+  }
+
+  .metric-label {
+    @apply text-xs font-medium text-surface-400 uppercase tracking-wider;
+  }
+
+  /* Shimmer loading skeleton */
+  .skeleton {
+    @apply bg-gradient-to-r from-surface-850 via-surface-800 to-surface-850;
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+  }
+
+  /* Animated grid background */
+  .grid-bg {
+    background-image: radial-gradient(circle, rgba(91, 99, 248, 0.06) 1px, transparent 1px);
+    background-size: 32px 32px;
+  }
+
+  /* Glow effects */
+  .glow-brand {
+    box-shadow: 0 0 30px rgba(91, 99, 248, 0.2);
+  }
+
+  /* Score ring */
+  .score-ring {
+    @apply relative inline-flex items-center justify-center;
+  }
+}
+
+@layer utilities {
+  .text-gradient {
+    @apply bg-gradient-to-r from-brand-400 to-accent-cyan bg-clip-text text-transparent;
+  }
+
+  .border-gradient {
+    background: linear-gradient(#090d18, #090d18) padding-box,
+                linear-gradient(135deg, rgba(91,99,248,0.5), rgba(34,211,238,0.3)) border-box;
+    border: 1px solid transparent;
+  }
+
+  /* Chart tooltip */
+  .recharts-tooltip-wrapper {
+    outline: none !important;
+  }
+
+  .recharts-default-tooltip {
+    background: #1e2640 !important;
+    border: 1px solid rgba(91, 99, 248, 0.2) !important;
+    border-radius: 8px !important;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4) !important;
+  }
+}
+
+/* Page transition */
+@keyframes pageIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.page-enter {
+  animation: pageIn 0.3s ease-out both;
+}
