@@ -7,6 +7,7 @@ import morgan from 'morgan';
 import rateLimit from 'express-rate-limit';
 import { connectDatabase, config, logger } from './config';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler';
+
 import authRoutes from './routes/auth';
 import campaignRoutes from './routes/campaigns';
 import analyticsRoutes from './routes/analytics';
@@ -33,13 +34,17 @@ const getRequestIdentity = (req: express.Request): string => {
 // ─────────────────────────────────────────────────────────
 app.use(
   helmet({
-    contentSecurityPolicy: false, // ✅ safer for APIs
+    contentSecurityPolicy: false,
   })
 );
 
+// ✅ FIXED CORS (IMPORTANT)
 app.use(
   cors({
-    origin: config.frontendUrl || '*',
+    origin: [
+      'http://localhost:3000',
+      config.frontendUrl, // from env
+    ],
     credentials: true,
   })
 );
@@ -84,14 +89,14 @@ app.use(
 );
 
 // ─────────────────────────────────────────────────────────
-// ✅ ROOT ROUTE (FIXED)
+// ✅ ROOT ROUTE
 // ─────────────────────────────────────────────────────────
 app.get('/', (req, res) => {
   res.send('🚀 AI Insight API is running');
 });
 
 // ─────────────────────────────────────────────────────────
-// ✅ HEALTH ROUTE (UPDATED)
+// ✅ HEALTH ROUTE
 // ─────────────────────────────────────────────────────────
 app.get('/api/health', (req, res) => {
   res.json({
@@ -128,12 +133,14 @@ async function bootstrap() {
     logger.info(`🚀 Server running on port ${config.port}`);
   });
 
-  // Graceful shutdown
   process.on('SIGTERM', () => server.close());
   process.on('SIGINT', () => server.close());
 
-  // ✅ SAFE REDIS WORKER START
-  if (process.env.REDIS_URL) {
+  // ✅ UPDATED REDIS CHECK (Upstash-safe)
+  if (
+    process.env.UPSTASH_REDIS_REST_URL &&
+    process.env.UPSTASH_REDIS_REST_TOKEN
+  ) {
     try {
       const { schedulePeriodicSync } = await import('./workers/syncWorker');
       await schedulePeriodicSync();
