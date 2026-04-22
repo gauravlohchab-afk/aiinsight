@@ -10,7 +10,7 @@ import { errorHandler, notFoundHandler } from './middleware/errorHandler';
 import authRoutes from './routes/auth';
 import campaignRoutes from './routes/campaigns';
 import analyticsRoutes from './routes/analytics';
-import aiRoutes from './routes/ai';
+import aiRoutes from './modules/ai/ai.routes';
 import adSetRoutes from './routes/adsets';
 import adsRoutes from './routes/ads';
 import metaRoutes from './routes/meta';

@@ -1,72 +1,22 @@
-import OpenAI from 'openai';
 import { config, logger } from '../config';
-import { AIInsight } from '../models/AIInsight';
+import { AIInsight } from '../modules/ai/ai-insight.model';
+import {
+  AdReviewItem,
+  AIAnalysisOutput,
+  AudienceDefinition,
+  CampaignReviewItem,
+  PerformanceReviewOutput,
+} from '../modules/ai/ai.types';
+import { getOpenAIClient } from '../integrations/openai/openai.client';
 import { Campaign } from '../models/Campaign';
 import mongoose from 'mongoose';
-
-interface AudienceDefinition {
-  ageRange?: { min: number; max: number };
-  locations?: string[];
-  interests?: string[];
-  painPoints?: string[];
-  description?: string;
-}
-
-interface AIAnalysisOutput {
-  alignment_score: number;
-  gaps: string[];
-  recommendations: string[];
-}
-
-interface AdReviewItem {
-  adId: string;
-  adName: string;
-  status: 'good' | 'average' | 'poor';
-  spend: number;
-  ctr: number;
-  conversions: number;
-  insights: string[];
-  recommendations: string[];
-}
-
-interface CampaignReviewItem {
-  campaignId: string;
-  campaignName: string;
-  status: 'good' | 'average' | 'poor';
-  spend: number;
-  impressions: number;
-  clicks: number;
-  ctr: number;
-  cpc: number;
-  cpm: number;
-  roas: number;
-  conversions: number;
-  performanceScore: number;
-  confidence: 'high' | 'medium' | 'low';
-  insights: string[];
-  recommendations: string[];
-  ads: AdReviewItem[];
-}
-
-interface PerformanceReviewOutput {
-  overallSummary: string;
-  campaigns: CampaignReviewItem[];
-  // legacy fields kept for backward-compat
-  overall_assessment?: string;
-  top_performing_campaigns?: string[];
-  underperforming_campaigns?: string[];
-  budget_reallocation?: string[];
-  quick_wins?: string[];
-  strategic_changes?: string[];
-}
+import OpenAI from 'openai';
 
 export class AIService {
   private client: OpenAI;
 
   constructor() {
-    this.client = new OpenAI({
-      apiKey: config.openai.apiKey,
-    });
+    this.client = getOpenAIClient();
   }
 
   // ── System Prompt ─────────────────────────────────────────────────────────
