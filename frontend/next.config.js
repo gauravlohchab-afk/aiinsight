@@ -3,18 +3,13 @@ const nextConfig = {
   images: {
     domains: ['graph.facebook.com', 'scontent.xx.fbcdn.net'],
   },
+
+  // Expose env variables to frontend
   env: {
     NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL,
     NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
   },
-  async rewrites() {
-    return [
-      {
-        source: '/api/backend/:path*',
-        destination: `${process.env.NEXT_PUBLIC_API_URL}/:path*`,
-      },
-    ];
-  },
+
   async headers() {
     return [
       {
