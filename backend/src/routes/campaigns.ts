@@ -10,12 +10,14 @@ import { metaService } from '../services/MetaService';
 import { analyticsService } from '../services/AnalyticsService';
 import { enqueueSyncJob } from '../workers/syncWorker';
 import { buildCacheKey, requestCache } from '../utils/requestCache';
+import { logger } from '../config';
 import mongoose from 'mongoose';
 
 const router = Router();
 router.use(authenticate);
 
 const CAMPAIGNS_CACHE_TTL_MS = 45 * 1000;
+const ADSETS_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes to ease Meta rate limits
 const SYNC_COOLDOWN_MS = 30 * 1000;
 const syncCooldowns = new Map<string, number>();
 
@@ -294,35 +296,97 @@ router.get(
       throw new AppError('Meta account not connected', 401);
     }
 
-    const campaignResult = await metaService.getSingleCampaignWithInsights(
-      metaCampaignId,
-      user.metaAuth.accessToken,
-      dateParams
-    );
+    let campaignResult: any = { campaign: null };
+    try {
+      campaignResult = await metaService.getSingleCampaignWithInsights(
+        metaCampaignId,
+        user.metaAuth.accessToken,
+        dateParams
+      );
+    } catch (err: any) {
+      logger.warn('⚠️ Could not fetch campaign details from Meta', { metaCampaignId, error: err?.message });
+    }
 
-    const rawAdSets = await metaService.getCampaignAdSets(
-      user.metaAuth.accessToken,
-      metaCampaignId,
-      dateParams
-    );
+    let adSets: any[] = [];
+    let adSetsSource: 'live' | 'db' = 'live';
 
-    const adSets = rawAdSets.map((adSet: any) => {
-      const metrics = metaService.normalizeMetrics(adSet.insights?.data?.[0]);
+    try {
+      const rawAdSets = await metaService.getCampaignAdSets(
+        user.metaAuth.accessToken,
+        metaCampaignId,
+        dateParams
+      );
 
-      return {
-        id: adSet.id,
-        name: adSet.name,
-        status: adSet.status,
-        budget: {
-          daily: adSet.daily_budget ? Number(adSet.daily_budget) / 100 : null,
-          lifetime: adSet.lifetime_budget ? Number(adSet.lifetime_budget) / 100 : null,
-        },
-        metrics,
-        _meta: {
-          source: adSet.insights?.data?.length ? 'live' : 'partial',
-        },
-      };
-    });
+      adSets = rawAdSets.map((adSet: any) => {
+        const metrics = metaService.normalizeMetrics(adSet.insights?.data?.[0]);
+        return {
+          id: adSet.id,
+          name: adSet.name,
+          status: adSet.status,
+          budget: {
+            daily: adSet.daily_budget ? Number(adSet.daily_budget) / 100 : null,
+            lifetime: adSet.lifetime_budget ? Number(adSet.lifetime_budget) / 100 : null,
+          },
+          metrics,
+          _meta: { source: adSet.insights?.data?.length ? 'live' : 'partial' },
+        };
+      });
+    } catch (metaErr: any) {
+      const isRateLimit = metaErr?.response?.data?.error?.code === 17 ||
+        metaErr?.response?.status === 400;
+      logger.warn('⚠️ Meta API failed for campaign adsets, trying without date filter', {
+        campaignId: metaCampaignId,
+        error: metaErr?.message,
+        isRateLimit,
+      });
+      adSetsSource = 'db';
+
+      // If rate limited with a specific date filter, retry without date params
+      // so we at least get the adsets list (with empty metrics)
+      if (isRateLimit && dateParams) {
+        try {
+          const rawAdSets = await metaService.getCampaignAdSets(
+            user.metaAuth.accessToken,
+            metaCampaignId,
+            undefined // no date filter
+          );
+          adSets = rawAdSets.map((adSet: any) => {
+            const metrics = metaService.normalizeMetrics(adSet.insights?.data?.[0]);
+            return {
+              id: adSet.id,
+              name: adSet.name,
+              status: adSet.status,
+              budget: {
+                daily: adSet.daily_budget ? Number(adSet.daily_budget) / 100 : null,
+                lifetime: adSet.lifetime_budget ? Number(adSet.lifetime_budget) / 100 : null,
+              },
+              metrics,
+              _meta: { source: 'partial' },
+            };
+          });
+          // Don't cache rate-limited fallback responses too long
+          adSetsSource = 'live';
+        } catch (_retryErr: any) {
+          logger.warn('⚠️ Retry without date filter also failed, falling back to DB', { campaignId: metaCampaignId });
+        }
+      }
+
+      // Fall back to locally synced ad sets if still empty
+      if (adSets.length === 0) {
+        const dbAdSets = await AdSet.find({ metaCampaignId, userId }).lean();
+        adSets = dbAdSets.map((adSet: any) => ({
+          id: adSet.metaAdSetId,
+          name: adSet.name,
+          status: adSet.status,
+          budget: {
+            daily: adSet.budget?.daily ?? null,
+            lifetime: adSet.budget?.lifetime ?? null,
+          },
+          metrics: metaService.normalizeMetrics(adSet.metrics),
+          _meta: { source: 'db' },
+        }));
+      }
+    }
 
     const responseBody = {
       success: true,
@@ -337,7 +401,7 @@ router.get(
       },
     };
 
-    requestCache.set(cacheKey, responseBody, CAMPAIGNS_CACHE_TTL_MS);
+    requestCache.set(cacheKey, responseBody, adSetsSource === 'db' ? 30 * 1000 : ADSETS_CACHE_TTL_MS);
     return res.json(responseBody);
   })
 );

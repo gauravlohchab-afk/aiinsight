@@ -496,40 +496,33 @@ export class MetaService {
     campaignId: string,
     dateParams?: { preset?: string; since?: string; until?: string }
   ): Promise<Array<Record<string, any>>> {
+    const insightFields =
+      'spend,impressions,reach,clicks,ctr,cpc,cpm,frequency,conversions,actions,action_values,purchase_roas';
+    const dateParamStr = this.buildInsightsDateParams(dateParams);
+
+    // Build insights sub-fields with optional date filter
+    const insightsParam = dateParams?.since && dateParams?.until
+      ? `insights.time_range(${JSON.stringify({ since: dateParams.since, until: dateParams.until })}){${insightFields}}`
+      : dateParams?.preset
+        ? `insights.date_preset(${dateParams.preset}){${insightFields}}`
+        : `insights{${insightFields}}`;
+
     const response = await this.client.get<MetaApiResponse<Array<Record<string, any>>>>(
       `/${campaignId}/adsets`,
       {
         params: {
           access_token: accessToken,
-          fields:
-            'id,name,status,daily_budget,lifetime_budget,bid_amount,bid_strategy,optimization_goal,billing_event,start_time,end_time',
+          fields: `id,name,status,daily_budget,lifetime_budget,bid_amount,bid_strategy,optimization_goal,billing_event,start_time,end_time,${insightsParam}`,
           limit: 200,
         },
       }
     );
 
-    const adSets = response.data.data || [];
-
-    return Promise.all(
-      adSets.map(async (adSet) => {
-        try {
-          const insight = await this.fetchEntityInsights(adSet.id, accessToken, dateParams);
-          return {
-            ...adSet,
-            insights: { data: insight ? [insight] : [] },
-          };
-        } catch (error: any) {
-          logger.warn(`⚠️ Failed to fetch insights for ad set ${adSet.id}`, {
-            error: error.message,
-          });
-
-          return {
-            ...adSet,
-            insights: { data: [] },
-          };
-        }
-      })
-    );
+    // Insights are already embedded; no per-adset calls needed
+    return (response.data.data || []).map((adSet) => ({
+      ...adSet,
+      insights: adSet.insights ? adSet.insights : { data: [] },
+    }));
   }
 
   async getSingleAdSetWithInsights(
