@@ -40,8 +40,15 @@ export function formatDate(date: string | Date): string {
   return format(new Date(date), 'MMM d, yyyy');
 }
 
-export function formatRelative(date: string | Date): string {
-  return formatDistanceToNow(new Date(date), { addSuffix: true });
+export function formatRelative(date: string | Date | null | undefined): string {
+  if (!date) return 'Unknown';
+  try {
+    const d = new Date(date);
+    if (isNaN(d.getTime())) return 'Unknown';
+    return formatDistanceToNow(d, { addSuffix: true });
+  } catch {
+    return 'Unknown';
+  }
 }
 
 export function getHealthScoreColor(score: number): string {
